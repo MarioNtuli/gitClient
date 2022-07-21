@@ -17,7 +17,9 @@ const Login: FunctionComponent<ILoginProps> = (props) => {
 
   const signInWithGit = async () => {
     setIsAuthenticate(true);
-    signInWithPopup(auth, new GithubAuthProvider())
+    const provider = new GithubAuthProvider();
+    provider.addScope("repo");
+    signInWithPopup(auth, provider)
       .then((response) => {
         const credential = GithubAuthProvider.credentialFromResult(response);
         if (credential) {

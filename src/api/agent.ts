@@ -1,12 +1,42 @@
-import axios from "axios";
+import { Octokit } from "@octokit/core";
+import { ICommit } from "../components/pages/home";
 
-export const getCommitsFromGitHub = (token: string, email: string) => {
-  return axios.get(
-    `https://api.github.com/search/commits?q=author-email:${email}&page=1&order=desc&sort=committer-date`,
+export const getCommitsFromGitHub = async (token: string, email: string) => {
+  const octokit = new Octokit({
+    auth: token,
+  });
+  const queryString = encodeURI(`author-email:${email}`);
+  return await octokit.request("GET /search/commits", {
+    q: queryString,
+    sort: "author-date",
+    order: "desc",
+  });
+};
+
+export const addFavorite = async (token: string, commit: ICommit) => {
+  const octokit = new Octokit({
+    auth: token,
+  });
+  return await octokit.request(
+    "POST /repos/{owner}/{repo}/commits/{commit_sha}/comments",
     {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      owner: commit.UserName || "",
+      repo: commit.Repo || "",
+      commit_sha: commit.Sha || "",
+      body: "Client favorite",
+    }
+  );
+};
+export const getComments = async (token: string, commit: ICommit) => {
+  const octokit = new Octokit({
+    auth: token,
+  });
+  return await octokit.request(
+    "GET /repos/{owner}/{repo}/commits/{commit_sha}/comments",
+    {
+      owner: commit.UserName || "",
+      repo: commit.Repo || "",
+      commit_sha: commit.Sha || "",
     }
   );
 };
