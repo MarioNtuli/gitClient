@@ -20,7 +20,7 @@ const Application: FunctionComponent = () => {
           path="/"
           element={
             <UserProvider>
-              {name && <Home />} ||
+              {name && <Home />}
               {!name && (
                 <AuthRoute>
                   <Home />

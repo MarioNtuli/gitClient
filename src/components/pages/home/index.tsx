@@ -52,6 +52,7 @@ import { ToastContainer, toast } from "react-toastify";
 import LoginIcon from "@mui/icons-material/Login";
 import CloseIcon from "@mui/icons-material/Close";
 import "react-toastify/dist/ReactToastify.css";
+import { useNavigate } from "react-router-dom";
 
 interface IHomeProps {}
 
@@ -226,10 +227,12 @@ function TablePaginationActions(props: TablePaginationActionsProps) {
 
 interface TableComponentProps {
   commits: ICommit[];
+  addFavoriteOnclick: (commit: ICommit) => void;
 }
 
 const TableComponent: FunctionComponent<TableComponentProps> = ({
   commits,
+  addFavoriteOnclick,
 }) => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -279,6 +282,12 @@ const TableComponent: FunctionComponent<TableComponentProps> = ({
                       </Fragment>
                     }
                   />
+                  <IconButton
+                    key={row.URLCommit}
+                    onClick={() => addFavoriteOnclick(row)}
+                  >
+                    <FavoriteIcon />
+                  </IconButton>
                 </ListItem>
               </TableCell>
             </TableRow>
@@ -327,6 +336,8 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
   const urlParams = new URLSearchParams(queryString);
   const name = urlParams.get("name");
 
+  const navigate = useNavigate();
+
   const increment = (): any => {
     setCounter(count + 1);
   };
@@ -352,25 +363,24 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
     getCommitsFromGitHub(token || "", userName || "").then((response) => {
       let commitsTemp: ICommit[] = [];
 
-      response.data.items.forEach(async (x) => {
+      for (let index = 0; index < response.data.items.length; index++) {
+        const element = response.data.items[index];
         let commitTemp: ICommit = {
-          CommitMassage: x.commit.message,
-          URLCommit: x.comments_url,
-          DateCommit: x.commit.author.date,
-          UserName: x.commit.author.name,
-          Repo: x.repository.name,
-          Sha: x.sha,
-          commentURL: x.comments_url,
+          CommitMassage: element.commit.message,
+          URLCommit: element.comments_url,
+          DateCommit: element.commit.author.date,
+          UserName: element.author?.login,
+          Repo: element.repository.name,
+          Sha: element.sha,
+          commentURL: element.comments_url,
         };
         commitsTemp.push(commitTemp);
-
-        if (token) {
+        if (token && index < 30) {
           fetchComments(commitTemp);
         }
-
-        setCommits(commitsTemp);
-        setAllCommits(commitsTemp);
-      });
+      }
+      setCommits(commitsTemp);
+      setAllCommits(commitsTemp);
     });
   };
 
@@ -425,7 +435,7 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
         } else toast("Failed to Add commit to favorite");
       });
     } else {
-      signOut(auth);
+      navigate("/Login");
     }
   };
   const handleClickOpen = () => {
@@ -500,7 +510,10 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
             Favorite
           </BootstrapDialogTitle>
           <DialogContent dividers>
-            <TableComponent commits={favoriteCommits} />
+            <TableComponent
+              commits={favoriteCommits}
+              addFavoriteOnclick={addFavoriteOnclick}
+            />
           </DialogContent>
           <DialogActions>
             <Button autoFocus onClick={handleClose}>
@@ -518,7 +531,10 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
         justifyContent="center"
         className={classes.gridContainer}
       >
-        <TableComponent commits={commits} />
+        <TableComponent
+          commits={commits}
+          addFavoriteOnclick={addFavoriteOnclick}
+        />
       </Grid>
     </>
   );
