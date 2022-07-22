@@ -10,6 +10,9 @@ import UserProvider from "./shared/UserProvider";
 initializeApp(config.firebaseConfig);
 
 const Application: FunctionComponent = () => {
+  const queryString = window.location.search;
+  const urlParams = new URLSearchParams(queryString);
+  const name = urlParams.get("name");
   return (
     <BrowserRouter>
       <Routes>
@@ -17,9 +20,12 @@ const Application: FunctionComponent = () => {
           path="/"
           element={
             <UserProvider>
-              <AuthRoute>
-                <Home />
-              </AuthRoute>
+              {name && <Home />} ||
+              {!name && (
+                <AuthRoute>
+                  <Home />
+                </AuthRoute>
+              )}
             </UserProvider>
           }
         />
