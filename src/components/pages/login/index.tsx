@@ -25,6 +25,7 @@ const Login: FunctionComponent<ILoginProps> = (props) => {
         if (credential) {
           const token = credential.accessToken || "";
           const email = response.user.email || "";
+          const userName = response.user.displayName;
           if (setUserToken) {
             setUserToken(token, email);
           }

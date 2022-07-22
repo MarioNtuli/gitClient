@@ -40,6 +40,7 @@ import {
   addFavorite,
   getComments,
   getCommitsFromGitHub,
+  getGitUser,
 } from "../../../api/agent";
 import { LoginContext } from "../../../shared/Context";
 import FavoriteIcon from "@mui/icons-material/Favorite";
@@ -223,65 +224,13 @@ function TablePaginationActions(props: TablePaginationActionsProps) {
   );
 }
 
-const Home: FunctionComponent<IHomeProps> = (props) => {
-  const [commits, setCommits] = useState<ICommit[]>([]);
-  const [allCommits, setAllCommits] = useState<ICommit[]>([]);
-  const [favoriteCommits, setFavoriteCommits] = useState<ICommit[]>([]);
-  const auth = getAuth();
-  const { token, email } = useContext(LoginContext);
-  const classes = styles();
-  const [open, setOpen] = useState<boolean>(false);
-  const [count, setCount] = useState<number>(0);
+interface TableComponentProps {
+  commits: ICommit[];
+}
 
-  useEffect(() => {
-    getCommitsFromGitHub(token || "", email || "").then((response) => {
-      let commitTemp: ICommit[] = [];
-      let favorites: ICommit[] = [];
-      response.data.items.forEach(async (x) => {
-        commitTemp.push({
-          CommitMassage: x.commit.message,
-          URLCommit: x.comments_url,
-          DateCommit: x.commit.author.date,
-          UserName: x.commit.author.name,
-          Repo: x.repository.name,
-          Sha: x.sha,
-          commentURL: x.comments_url,
-        });
-        await getComments(token || "", {
-          CommitMassage: x.commit.message,
-          URLCommit: x.comments_url,
-          DateCommit: x.commit.author.date,
-          UserName: x.commit.author.name,
-          Repo: x.repository.name,
-          Sha: x.sha,
-          commentURL: x.comments_url,
-        }).then((response) => {
-          response.data.forEach((y) => {
-            if (
-              y.body === "Client favorite" &&
-              favorites.filter((z) => z.commentURL === x.comments_url).length <=
-                0
-            ) {
-              favorites.push({
-                CommitMassage: x.commit.message,
-                URLCommit: x.comments_url,
-                DateCommit: x.commit.author.date,
-                UserName: x.commit.author.name,
-                Repo: x.repository.name,
-                Sha: x.sha,
-                commentURL: x.comments_url,
-              });
-            }
-          });
-        });
-        setCommits(commitTemp);
-        setFavoriteCommits(favorites);
-        setAllCommits(commitTemp);
-        setCount(favorites.length);
-      });
-    });
-  }, [token, getCommitsFromGitHub]);
-
+const TableComponent: FunctionComponent<TableComponentProps> = ({
+  commits,
+}) => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const emptyRows =
@@ -300,6 +249,148 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
+  return (
+    <TableContainer component={Paper} sx={{ maxWidth: 800 }}>
+      <Table aria-label="custom pagination table">
+        <TableBody>
+          {(rowsPerPage > 0
+            ? commits.slice(
+                page * rowsPerPage,
+                page * rowsPerPage + rowsPerPage
+              )
+            : commits
+          ).map((row) => (
+            <TableRow key={row.URLCommit}>
+              <TableCell component="th" scope="row">
+                <ListItem key={row.URLCommit} alignItems="flex-start">
+                  <ListItemText
+                    primary={row.CommitMassage}
+                    secondary={
+                      <Fragment>
+                        <Typography
+                          sx={{ display: "inline" }}
+                          component="span"
+                          variant="body2"
+                          color="text.primary"
+                        >
+                          {row.UserName}
+                        </Typography>
+                        {` --committed on ${row.DateCommit}`}
+                      </Fragment>
+                    }
+                  />
+                </ListItem>
+              </TableCell>
+            </TableRow>
+          ))}
+          {emptyRows > 0 && (
+            <TableRow style={{ height: 53 * emptyRows }}>
+              <TableCell colSpan={6} />
+            </TableRow>
+          )}
+        </TableBody>
+        <TableFooter>
+          <TableRow>
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25, { label: "All", value: -1 }]}
+              colSpan={3}
+              count={commits.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              SelectProps={{
+                inputProps: {
+                  "aria-label": "rows per page",
+                },
+                native: true,
+              }}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              ActionsComponent={TablePaginationActions}
+            />
+          </TableRow>
+        </TableFooter>
+      </Table>
+    </TableContainer>
+  );
+};
+
+const Home: FunctionComponent<IHomeProps> = (props) => {
+  const [commits, setCommits] = useState<ICommit[]>([]);
+  const [allCommits, setAllCommits] = useState<ICommit[]>([]);
+  const [favoriteCommits, setFavoriteCommits] = useState<ICommit[]>([]);
+  const auth = getAuth();
+  const { token, email, userName, setUserName } = useContext(LoginContext);
+  const classes = styles();
+  const [open, setOpen] = useState<boolean>(false);
+  const [count, setCounter] = useState<number>(0);
+  const queryString = window.location.search;
+  const urlParams = new URLSearchParams(queryString);
+  const name = urlParams.get("name");
+
+  const increment = (): any => {
+    setCounter(count + 1);
+  };
+
+  const fetchComments = async (commitTemp: ICommit) => {
+    let favorites: ICommit[] = [];
+    await getComments(token || "", commitTemp).then((response) => {
+      response.data.forEach((y) => {
+        if (
+          y.body === "Client favorite" &&
+          favorites.filter((z) => z.commentURL === commitTemp.commentURL)
+            .length <= 0
+        ) {
+          favorites.push(commitTemp);
+          increment();
+        }
+      });
+    });
+    setFavoriteCommits([...favoriteCommits, ...favorites]);
+  };
+
+  const fetchCommits = () => {
+    getCommitsFromGitHub(token || "", userName || "").then((response) => {
+      let commitsTemp: ICommit[] = [];
+
+      response.data.items.forEach(async (x) => {
+        let commitTemp: ICommit = {
+          CommitMassage: x.commit.message,
+          URLCommit: x.comments_url,
+          DateCommit: x.commit.author.date,
+          UserName: x.commit.author.name,
+          Repo: x.repository.name,
+          Sha: x.sha,
+          commentURL: x.comments_url,
+        };
+        commitsTemp.push(commitTemp);
+
+        if (token) {
+          fetchComments(commitTemp);
+        }
+
+        setCommits(commitsTemp);
+        setAllCommits(commitsTemp);
+      });
+    });
+  };
+
+  useEffect(() => {
+    if ((name === "" || !name) && token) {
+      getGitUser(token || "").then((res) => {
+        if (setUserName) {
+          setUserName(res.data.login);
+        }
+      });
+    } else if (name) {
+      if (setUserName) setUserName(name);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (userName) {
+      fetchCommits();
+    }
+  }, [userName]);
 
   const onSearch = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -320,18 +411,22 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
     }
   };
   const addFavoriteOnclick = (commit: ICommit) => {
-    addFavorite(token || "", commit).then((response) => {
-      if (response.status === 201) {
-        if (
-          favoriteCommits.filter((x) => x.URLCommit === commit.URLCommit)
-            .length <= 0
-        ) {
-          setFavoriteCommits([...favoriteCommits, commit]);
-          setCount(count + 1);
-        }
-        toast("Added commit to favorite");
-      } else toast("Failed to Add commit to favorite");
-    });
+    if (token) {
+      addFavorite(token || "", commit).then((response) => {
+        if (response.status === 201) {
+          if (
+            favoriteCommits.filter((x) => x.URLCommit === commit.URLCommit)
+              .length <= 0
+          ) {
+            setFavoriteCommits([...favoriteCommits, commit]);
+            increment();
+          }
+          toast("Added commit to favorite");
+        } else toast("Failed to Add commit to favorite");
+      });
+    } else {
+      signOut(auth);
+    }
   };
   const handleClickOpen = () => {
     setOpen(true);
@@ -405,72 +500,7 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
             Favorite
           </BootstrapDialogTitle>
           <DialogContent dividers>
-            <TableContainer component={Paper} sx={{ maxWidth: 800 }}>
-              <Table aria-label="custom pagination table">
-                <TableBody>
-                  {(rowsPerPage > 0
-                    ? commits.slice(
-                        page * rowsPerPage,
-                        page * rowsPerPage + rowsPerPage
-                      )
-                    : favoriteCommits
-                  ).map((row) => (
-                    <TableRow key={row.URLCommit}>
-                      <TableCell component="th" scope="row">
-                        <ListItem key={row.URLCommit} alignItems="flex-start">
-                          <ListItemText
-                            primary={row.CommitMassage}
-                            secondary={
-                              <Fragment>
-                                <Typography
-                                  sx={{ display: "inline" }}
-                                  component="span"
-                                  variant="body2"
-                                  color="text.primary"
-                                >
-                                  {row.UserName}
-                                </Typography>
-                                {` --committed on ${row.DateCommit}`}
-                              </Fragment>
-                            }
-                          />
-                        </ListItem>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {emptyRows > 0 && (
-                    <TableRow style={{ height: 53 * emptyRows }}>
-                      <TableCell colSpan={6} />
-                    </TableRow>
-                  )}
-                </TableBody>
-                <TableFooter>
-                  <TableRow>
-                    <TablePagination
-                      rowsPerPageOptions={[
-                        5,
-                        10,
-                        25,
-                        { label: "All", value: -1 },
-                      ]}
-                      colSpan={3}
-                      count={commits.length}
-                      rowsPerPage={rowsPerPage}
-                      page={page}
-                      SelectProps={{
-                        inputProps: {
-                          "aria-label": "rows per page",
-                        },
-                        native: true,
-                      }}
-                      onPageChange={handleChangePage}
-                      onRowsPerPageChange={handleChangeRowsPerPage}
-                      ActionsComponent={TablePaginationActions}
-                    />
-                  </TableRow>
-                </TableFooter>
-              </Table>
-            </TableContainer>
+            <TableComponent commits={favoriteCommits} />
           </DialogContent>
           <DialogActions>
             <Button autoFocus onClick={handleClose}>
@@ -488,73 +518,7 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
         justifyContent="center"
         className={classes.gridContainer}
       >
-        <TableContainer component={Paper} sx={{ maxWidth: 800 }}>
-          <Table aria-label="custom pagination table">
-            <TableBody>
-              {(rowsPerPage > 0
-                ? commits.slice(
-                    page * rowsPerPage,
-                    page * rowsPerPage + rowsPerPage
-                  )
-                : commits
-              ).map((row) => (
-                <TableRow key={row.URLCommit}>
-                  <TableCell component="th" scope="row">
-                    <ListItem key={row.URLCommit} alignItems="flex-start">
-                      <ListItemText
-                        primary={row.CommitMassage}
-                        secondary={
-                          <Fragment>
-                            <Typography
-                              sx={{ display: "inline" }}
-                              component="span"
-                              variant="body2"
-                              color="text.primary"
-                            >
-                              {row.UserName}
-                            </Typography>
-                            {` --committed on ${row.DateCommit}`}
-                          </Fragment>
-                        }
-                      />
-                      <IconButton
-                        key={row.URLCommit}
-                        onClick={() => addFavoriteOnclick(row)}
-                      >
-                        <FavoriteIcon />
-                      </IconButton>
-                    </ListItem>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {emptyRows > 0 && (
-                <TableRow style={{ height: 53 * emptyRows }}>
-                  <TableCell colSpan={6} />
-                </TableRow>
-              )}
-            </TableBody>
-            <TableFooter>
-              <TableRow>
-                <TablePagination
-                  rowsPerPageOptions={[5, 10, 25, { label: "All", value: -1 }]}
-                  colSpan={3}
-                  count={commits.length}
-                  rowsPerPage={rowsPerPage}
-                  page={page}
-                  SelectProps={{
-                    inputProps: {
-                      "aria-label": "rows per page",
-                    },
-                    native: true,
-                  }}
-                  onPageChange={handleChangePage}
-                  onRowsPerPageChange={handleChangeRowsPerPage}
-                  ActionsComponent={TablePaginationActions}
-                />
-              </TableRow>
-            </TableFooter>
-          </Table>
-        </TableContainer>
+        <TableComponent commits={commits} />
       </Grid>
     </>
   );
