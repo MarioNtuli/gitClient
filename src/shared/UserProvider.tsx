@@ -11,16 +11,17 @@ const UserProvider: FunctionComponent<UserProviderProps> = (props) => {
   const [userName, setName] = useState<string>("");
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
     if (storedUser && token === "") {
       const user = JSON.parse(storedUser);
       setToken(user.token);
       setName(user.userName);
+      setEmail(user.userEmail);
     } else {
       const user = JSON.stringify({
         token: token,
         userName: userName,
+        email: email,
       });
 
       localStorage.setItem("token", token);

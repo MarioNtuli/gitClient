@@ -40,6 +40,7 @@ import {
   addFavorite,
   getComments,
   getCommitsFromGitHub,
+  getFavorites,
   getGitUser,
 } from "../../../api/agent";
 import { LoginContext } from "../../../shared/Context";
@@ -64,6 +65,7 @@ export interface ICommit {
   Repo?: string;
   Sha: string;
   commentURL: string;
+  Email?: string;
 }
 
 interface TablePaginationActionsProps {
@@ -74,6 +76,15 @@ interface TablePaginationActionsProps {
     event: React.MouseEvent<HTMLButtonElement>,
     newPage: number
   ) => void;
+}
+interface octdata {
+  type: string;
+  size: number;
+  name: string;
+  path: string;
+  content?: string | undefined;
+  sha: string;
+  url: string;
 }
 const Search = styled("div")(({ theme }) => ({
   position: "relative",
@@ -335,6 +346,8 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
   const queryString = window.location.search;
   const urlParams = new URLSearchParams(queryString);
   const name = urlParams.get("name");
+  const [firstCommit, setFirstCommit] = useState<ICommit>();
+  const [globalSha,setGlobalSha] = useState<string>("");
 
   const navigate = useNavigate();
 
@@ -343,20 +356,13 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
   };
 
   const fetchComments = async (commitTemp: ICommit) => {
-    let favorites: ICommit[] = [];
-    await getComments(token || "", commitTemp).then((response) => {
-      response.data.forEach((y) => {
-        if (
-          y.body === "Client favorite" &&
-          favorites.filter((z) => z.commentURL === commitTemp.commentURL)
-            .length <= 0
-        ) {
-          favorites.push(commitTemp);
-          increment();
-        }
-      });
-    });
-    setFavoriteCommits([...favoriteCommits, ...favorites]);
+     await getFavorites(token || "", commitTemp).then(response=>{
+      var data = JSON.parse(response.data.data);
+      setGlobalSha(response.data.globalSha)
+      setFavoriteCommits(data);
+      
+      setCounter(data.length);
+     })
   };
 
   const fetchCommits = () => {
@@ -373,12 +379,14 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
           Repo: element.repository.name,
           Sha: element.sha,
           commentURL: element.comments_url,
+          Email: element.commit.author.email
         };
         commitsTemp.push(commitTemp);
-        if (token && index < 30) {
-          fetchComments(commitTemp);
-        }
+        
       }
+      
+      setFirstCommit(commitsTemp[0])
+      fetchComments(commitsTemp[0])
       setCommits(commitsTemp);
       setAllCommits(commitsTemp);
     });
@@ -403,6 +411,8 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
   }, [userName]);
 
   const logOut = () => {
+    setFavoriteCommits([])
+    setCommits([]);
     signOut(auth);
     localStorage.clear();
     navigate("/Login");
@@ -426,23 +436,26 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
       setCommits(allCommits);
     }
   };
-  const addFavoriteOnclick = (commit: ICommit) => {
-    if (token) {
-      addFavorite(token || "", commit).then((response) => {
-        if (response.status === 201) {
-          if (
-            favoriteCommits.filter((x) => x.URLCommit === commit.URLCommit)
-              .length <= 0
-          ) {
-            setFavoriteCommits([...favoriteCommits, commit]);
-            increment();
-          }
-          toast("Added commit to favorite");
-        } else toast("Failed to Add commit to favorite");
-      });
-    } else {
-      navigate("/Login");
+  const addFavoriteOnclick = async (commit: ICommit) => {
+    let tempFavorite = favoriteCommits;
+    if (
+      favoriteCommits.filter((x) => x.URLCommit === commit.URLCommit)
+        .length <= 0
+    ) {
+      tempFavorite.push(commit)
+      setFavoriteCommits(tempFavorite);
+      increment();
+      if (token) {
+          addFavorite(token || "", tempFavorite,firstCommit!,globalSha).then(res=>{
+            setGlobalSha(res.data.content?.sha||"")
+          })
+        
+      } else {
+        navigate("/Login");
+      }
     }
+    
+    
   };
   const handleClickOpen = () => {
     setOpen(true);
