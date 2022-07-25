@@ -402,6 +402,12 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
     }
   }, [userName]);
 
+  const logOut = () => {
+    signOut(auth);
+    localStorage.clear();
+    navigate("/Login");
+  };
+
   const onSearch = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -481,7 +487,7 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
                 </IconButton>
                 <p>Favorite</p>
               </MenuItem>
-              <MenuItem onClick={() => signOut(auth)}>
+              <MenuItem onClick={() => logOut()}>
                 <IconButton
                   size="large"
                   aria-label="account of current user"

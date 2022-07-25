@@ -1,4 +1,4 @@
-import { FunctionComponent, useState } from "react";
+import { FunctionComponent, useEffect, useState } from "react";
 import { LoginContext } from "./Context";
 
 interface UserProviderProps {
@@ -9,6 +9,24 @@ const UserProvider: FunctionComponent<UserProviderProps> = (props) => {
   const [token, setToken] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [userName, setName] = useState<string>("");
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem("token");
+    const storedUser = localStorage.getItem("user");
+    if (storedUser && token === "") {
+      const user = JSON.parse(storedUser);
+      setToken(user.token);
+      setName(user.userName);
+    } else {
+      const user = JSON.stringify({
+        token: token,
+        userName: userName,
+      });
+
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", user);
+    }
+  }, [token, userName]);
   const setUserToken = (token: string, email: string) => {
     setToken(token);
     setEmail(email);
