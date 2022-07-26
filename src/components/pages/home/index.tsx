@@ -239,11 +239,13 @@ function TablePaginationActions(props: TablePaginationActionsProps) {
 interface TableComponentProps {
   commits: ICommit[];
   addFavoriteOnclick: (commit: ICommit) => void;
+  showFavorite: boolean;
 }
 
 const TableComponent: FunctionComponent<TableComponentProps> = ({
   commits,
   addFavoriteOnclick,
+  showFavorite,
 }) => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -293,12 +295,12 @@ const TableComponent: FunctionComponent<TableComponentProps> = ({
                       </Fragment>
                     }
                   />
-                  <IconButton
+                  {showFavorite && <IconButton
                     key={row.URLCommit}
                     onClick={() => addFavoriteOnclick(row)}
                   >
                     <FavoriteIcon />
-                  </IconButton>
+                  </IconButton>}
                 </ListItem>
               </TableCell>
             </TableRow>
@@ -532,6 +534,7 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
             <TableComponent
               commits={favoriteCommits}
               addFavoriteOnclick={addFavoriteOnclick}
+              showFavorite = {false}
             />
           </DialogContent>
           <DialogActions>
@@ -553,6 +556,7 @@ const Home: FunctionComponent<IHomeProps> = (props) => {
         <TableComponent
           commits={commits}
           addFavoriteOnclick={addFavoriteOnclick}
+          showFavorite
         />
       </Grid>
     </>
